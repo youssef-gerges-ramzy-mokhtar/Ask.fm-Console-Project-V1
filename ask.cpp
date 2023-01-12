@@ -356,6 +356,13 @@ struct Registration {
 	User get_user() {
 		return users[current_user_idx];
 	}
+
+	void list_users() {
+		for (auto user: users) {
+			cout << "ID: " << user.id << "		";
+			cout << "Name: " << user.name << "\n";
+		}
+	}
 };
 
 struct Ask {
@@ -372,7 +379,7 @@ struct Ask {
 			if (choice == 2) current_user.print_questions_from_me();
 			if (choice == 3) current_user.answer_question();
 			if (choice == 4) current_user.delete_question();
-			// if (choice == 6) 
+			if (choice == 6) reg.list_users(); 
 			if (choice == 8) break;
 		}
 	}
