@@ -235,12 +235,22 @@ struct QuestionLoader {
 	}
 };
 
-struct UsersLoader {
+struct Registration {
 	Database users_database = Database("users.txt", true);
+	int current_user_idx;
 	vector<User> users;
 
-	UsersLoader() {
+	Registration() {
 		load_users();
+		for (auto user: users)
+			cout << user.username << endl;
+
+		bool registration_success = false;
+		while (!registration_success) {
+			int choice = menu();
+			if (choice == 1) registration_success = login();
+			if (choice == 2) registration_success = signup();
+		}
 	}
 
 	void load_users() {
@@ -265,34 +275,13 @@ struct UsersLoader {
 		users_database.close();
 	}
 
-
-};
-
-struct Registration {
-	Database users_database = Database("users.txt", true);
-	User current_user;
-	vector<User>& users;
-
-	Registration() {
-		UsersLoader users_loader = UsersLoader();
-		users = users_loader.users;
-
-		// bool registration_success = false;
-		// while (!registration_success) {
-		// 	int choice = menu();
-		// 	if (choice == 1) registration_success = login();
-		// 	if (choice == 2) registration_success = signup();
-		// }
-	}
-
 	bool login() {
 		cout << "Enter user name & password: ";
 		string username, password;
 		cin >> username >> password;
 
-		bool user_found = user_exist(username, password); 
-
-		if (!user_found) {
+		current_user_idx = user_exist(username, password); 
+		if (current_user_idx == -1) {
 			cout << "Invalid Login Credentials\n\n"; 
 			return false;
 		}
@@ -306,65 +295,43 @@ struct Registration {
 		string name, email, username, password;
 		cin >> name >> email >> username >> password;
 
-		bool user_found = user_exist(username, password);
-
-		if (user_found) {
+		int current_user_idx = user_exist(username, password);
+		if (current_user_idx != -1) {
 			cout << "User Already Registered\n\n";
 			return false;
 		}
 
 		store_user(name, email, username, password);
-
 		cout << "Signup Completed Successfully\n";
 		return true;
 	}
 
-	bool user_exist(string username, string password) {
-		if (username == "" || password == "") return false;
-		for (auto user: users)
-			if (user.username == username && user.password == password) return true;
+	int user_exist(string username, string password) {
+		if (username == "" || password == "") return -1;
+		for (int i = 0; i < users.size(); i++)
+			if (users[i].username == username && users[i].password == password) return i;
 
-		return false;
-
-		string line;
-		string username_line, password_line;
-		
-		int line_num = 0;
-		while (getline(fin, line)) {
-			if (line == "") {
-				line_num = 0;
-				if (current_user.username == username && current_user.password == password) return true;
-				continue;
-			}
-
-			if (line_num == 0) {
-				istringstream iss(line);
-				iss >> current_user.id;
-			}
-
-			if (line_num == 1) current_user.name = line;
-			if (line_num == 2) current_user.email = line;
-			if (line_num == 3) current_user.username = line;
-			if (line_num == 4) current_user.password = line;
-
-			line_num++;
-		}
-
-		if (current_user.username == username && current_user.password == password) return true;
-		return false;
+		return -1;
 	}
 	void store_user(string name, string email, string username, string password) {
-		fout << current_user.id + 1 << "\n";
+		users_database.open();
+		
+		fout << users.size() << "\n";
 		fout << name << "\n";
 		fout << email << "\n";
 		fout << username << "\n";
-		fout << password << "\n\n";
+		fout << password << "\n";
 	
-		current_user.id++;
-		current_user.name = name;
-		current_user.email = email;
-		current_user.username = username;
-		current_user.password = password;
+		User new_user;
+		new_user.id = users.size();
+		new_user.name = name;
+		new_user.email = email;
+		new_user.username = username;
+		new_user.password = password;
+
+		users.push_back(new_user);
+	
+		users_database.close();
 	}
 
 	int menu() {
@@ -385,25 +352,29 @@ struct Registration {
 
 		return choice;
 	}
+
+	User get_user() {
+		return users[current_user_idx];
+	}
 };
 
 struct Ask {
 	Ask() {
 		Registration reg = Registration();
-		// User current_user = reg.current_user;
-		// QuestionLoader question_loader = QuestionLoader(current_user);
+		User current_user = reg.get_user();
+		QuestionLoader question_loader = QuestionLoader(current_user);
 		
-		// while (true) {
-			// int choice = menu();
-			// cout << "\n";
+		while (true) {
+			int choice = menu();
+			cout << "\n";
 
-			// if (choice == 1) current_user.print_questions_to_me();
-			// if (choice == 2) current_user.print_questions_from_me();
-			// if (choice == 3) current_user.answer_question();
-			// if (choice == 4) current_user.delete_question();
-			// // if (choice == 6) 
-			// if (choice == 8) break;
-		// }
+			if (choice == 1) current_user.print_questions_to_me();
+			if (choice == 2) current_user.print_questions_from_me();
+			if (choice == 3) current_user.answer_question();
+			if (choice == 4) current_user.delete_question();
+			// if (choice == 6) 
+			if (choice == 8) break;
+		}
 	}
 
 	int menu() {
