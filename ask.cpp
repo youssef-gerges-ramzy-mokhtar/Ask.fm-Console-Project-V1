@@ -91,6 +91,19 @@ struct Question {
 		if (answer.size() == 0) return false;
 		return true;
 	}
+
+	void print_feed() {
+		if (!is_answered()) return;
+
+		if (parent_question_id != -1) cout << "Thread Parent Question ID (" << parent_question_id << ") ";
+		cout << "Question ID (" << id << ") ";
+
+		if (!anonymous) cout << "from user id(" << from_user_id << ") ";
+		cout << "To user id(" << to_user_id << ")		";
+
+		cout << "Question: " << question << "\n";
+		cout << "	Answer: " << answer << "\n";
+	}
 };
 
 struct User {
@@ -99,6 +112,7 @@ struct User {
 	string email;
 	string username;
 	string password;
+	bool allow_AQ; // work on that
 
 	vector<Question> questions_to;
 	vector<Question> questions_from;
@@ -188,6 +202,18 @@ struct User {
 
 		cout << "Question Not Found\n";
 	}
+
+	void feed() {
+		for (auto question: questions_to) {
+			question.print_feed();
+
+			for (auto thread_q: question.thread_questions)
+				thread_q.print_feed();
+		}
+
+		for (auto question: questions_from)
+			question.print_feed();
+	}
 };
 
 
@@ -242,8 +268,6 @@ struct Registration {
 
 	Registration() {
 		load_users();
-		for (auto user: users)
-			cout << user.username << endl;
 
 		bool registration_success = false;
 		while (!registration_success) {
@@ -380,6 +404,7 @@ struct Ask {
 			if (choice == 3) current_user.answer_question();
 			if (choice == 4) current_user.delete_question();
 			if (choice == 6) reg.list_users(); 
+			if (choice == 7) current_user.feed();
 			if (choice == 8) break;
 		}
 	}
