@@ -252,15 +252,11 @@ struct QuestionLoader {
 				continue;
 			} 
 
-			if (current_q.parent_question_id != -1) {
-				// if (current_q.from_user_id == user.id) user.questions_from[current_q.parent_question_id].add_thread(current_q);
-				if (current_q.from_user_id == user.id) user.questions_from.push_back(current_q);
-				if (current_q.to_user_id == user.id) user.questions_to[current_q.parent_question_id].add_thread(current_q);
-				continue;
-			}
-
 			if (current_q.from_user_id == user.id) user.questions_from.push_back(current_q);
-			if (current_q.to_user_id == user.id) user.questions_to.push_back(current_q);
+			if (current_q.to_user_id == user.id) {
+				if (current_q.parent_question_id != -1) user.questions_to[current_q.parent_question_id].add_thread(current_q);
+				else user.questions_to.push_back(current_q);
+			}
 		}
 
 		questions_database.close();
