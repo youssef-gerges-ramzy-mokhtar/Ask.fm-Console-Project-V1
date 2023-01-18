@@ -17,13 +17,16 @@ struct Database {
 		fout.close();
 	}
 
-	void open() {
+	void open_write() {
 		auto status = ios::in | ios::out | ios::app;
 		if (!append)
 			status = ios::in | ios::out | ios::trunc;
 
-		fin.open(database_name);
 		fout.open(database_name, status);
+	}
+
+	void open_read() {
+		fin.open(database_name);
 	}
 };
 
@@ -216,20 +219,17 @@ struct User {
 	}
 };
 
-
 struct QuestionLoader {
-	Database questions_database = Database("questions.txt", true);
-	vector<Question> questions_to;
-	vector<Question> questions_from;
+	Database questions_database = Database("questions.txt", false);
+	vector<Question> questions;
 
 	QuestionLoader(User& user) {
 		load_questions(user);
-		user.questions_to = questions_to;
-		user.questions_from = questions_from;
 	}
 
 	void load_questions(User& user) {
-		questions_database.open();
+		questions.clear(), user.questions_to.clear(), user.questions_from.clear();
+		questions_database.open_read();
 		string line;
 
 		while (getline(fin, line)) {
@@ -247,17 +247,54 @@ struct QuestionLoader {
 			getline(iss, current_q.question);
 			getline(fin, current_q.answer);			
 
-			if (current_q.from_user_id != user.id && current_q.to_user_id != user.id) continue;
+			if (current_q.from_user_id != user.id && current_q.to_user_id != user.id) {
+				questions.push_back(current_q);
+				continue;
+			} 
 
 			if (current_q.parent_question_id != -1) {
-				if (current_q.from_user_id == user.id) questions_from[current_q.parent_question_id].add_thread(current_q);
-				if (current_q.to_user_id == user.id) questions_to[current_q.parent_question_id].add_thread(current_q);
+				// if (current_q.from_user_id == user.id) user.questions_from[current_q.parent_question_id].add_thread(current_q);
+				if (current_q.from_user_id == user.id) user.questions_from.push_back(current_q);
+				if (current_q.to_user_id == user.id) user.questions_to[current_q.parent_question_id].add_thread(current_q);
 				continue;
 			}
 
-			if (current_q.from_user_id == user.id) questions_from.push_back(current_q);
-			if (current_q.to_user_id == user.id) questions_to.push_back(current_q);
+			if (current_q.from_user_id == user.id) user.questions_from.push_back(current_q);
+			if (current_q.to_user_id == user.id) user.questions_to.push_back(current_q);
 		}
+
+		questions_database.close();
+	}
+	void save_questions(User& user) {
+		questions_database.open_write();
+
+		for (auto q: questions)
+			save_question(q);
+
+		for (auto q: user.questions_from) {
+			save_question(q);
+			for (auto thread_q: q.thread_questions)
+				save_question(thread_q);
+		}
+
+		for (auto q: user.questions_to) {
+			save_question(q);
+			for (auto thread_q: q.thread_questions)
+				save_question(thread_q);
+		}
+
+		questions_database.close();
+	}
+
+	void save_question(Question& q) {
+		char seperator = ',';
+
+		fout << q.id << seperator;
+		fout << q.from_user_id << seperator << q.to_user_id << seperator;
+		fout << q.anonymous << seperator;
+		fout << q.parent_question_id << seperator;
+		fout << q.question << endl;
+		fout << q.answer << endl;
 	}
 };
 
@@ -278,7 +315,7 @@ struct Registration {
 	}
 
 	void load_users() {
-		users_database.open();
+		users_database.open_read();
 
 		string line;
 		int line_num = 0;
@@ -338,7 +375,7 @@ struct Registration {
 		return -1;
 	}
 	void store_user(string name, string email, string username, string password) {
-		users_database.open();
+		users_database.open_write();
 		
 		fout << users.size() << "\n";
 		fout << name << "\n";
@@ -390,23 +427,31 @@ struct Registration {
 };
 
 struct Ask {
-	Ask() {
-		Registration reg = Registration();
-		User current_user = reg.get_user();
-		QuestionLoader question_loader = QuestionLoader(current_user);
-		
+	Registration reg = Registration();
+	User current_user = reg.get_user();
+	QuestionLoader question_loader = QuestionLoader(current_user);
+
+	Ask() {	
 		while (true) {
 			int choice = menu();
 			cout << "\n";
 
-			if (choice == 1) current_user.print_questions_to_me();
-			if (choice == 2) current_user.print_questions_from_me();
-			if (choice == 3) current_user.answer_question();
-			if (choice == 4) current_user.delete_question();
-			if (choice == 6) reg.list_users(); 
+			if (choice == 1) update_sys_read(), current_user.print_questions_to_me();
+			if (choice == 2) update_sys_read(), current_user.print_questions_from_me();
+			if (choice == 3) current_user.answer_question(), update_sys_write();
+			if (choice == 4) current_user.delete_question(), update_sys_write();
+			if (choice == 6) reg.list_users();
 			if (choice == 7) current_user.feed();
 			if (choice == 8) break;
 		}
+	}
+
+	void update_sys_write() {
+		question_loader.save_questions(current_user);
+	}
+
+	void update_sys_read() {
+		question_loader.load_questions(current_user);
 	}
 
 	int menu() {
