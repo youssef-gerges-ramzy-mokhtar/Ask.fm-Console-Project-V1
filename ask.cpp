@@ -115,7 +115,7 @@ struct User {
 	string email;
 	string username;
 	string password;
-	bool allow_AQ; // work on that
+	bool allow_AQ; // work on that will be when signing up
 
 	vector<Question> questions_to;
 	vector<Question> questions_from;
@@ -217,6 +217,90 @@ struct User {
 		for (auto question: questions_from)
 			question.print_feed();
 	}
+
+	void ask_question(vector<User>& users, vector<Question>& questions, int questions_count) {
+		int user_id;
+		cout << "Enter user id or -1 to cancel: ";
+		cin >> user_id;
+
+		if (user_id == -1) return; // cancelled
+
+		int user_idx = user_exist(users, user_id);
+		if (user_idx == -1) {
+			cout << "User Doesn't Exist Please Try Again\n";
+			return;
+		}
+
+		bool anonymous = false;
+		if (!users[user_idx].allow_AQ) cout << "Note: Anonymous questions are not allowed for this user\n";
+		else {
+			cout << "Do you want to send you question anonymously: Enter 1 for yes else enter 0: ";
+			cin >> anonymous;
+		}
+
+		int q_id;
+		cout << "For thread question: Enter Question id or -1 for new question: ";
+		cin >> q_id;
+
+		// Code Refactor Here
+		if (q_id == -1) {
+			Question q;
+			q.id = questions_count;
+			q.from_user_id = id;
+			q.to_user_id = user_id;
+			q.anonymous = anonymous;
+			q.parent_question_id = -1;
+
+			string question;
+			cout << "Enter question text: ";
+			cin.ignore();
+			getline(cin, question);
+
+			q.question = question;
+			q.answer = "";
+
+			questions.push_back(q);
+		} else {
+			cout << "Sizeof questions = " << questions.size() << endl;
+			int parent_question_idx = parent_question_exist(questions, user_id, q_id);
+			cout << "Parent Q idx = " << parent_question_idx << endl;
+			if (parent_question_idx == -1) {cout << "Question was not found.\n"; return;}
+
+			Question thread_q;
+
+			string question;
+			cout << "Enter question text: ";			
+			cin.ignore();
+			getline(cin, question);
+
+			thread_q.id = questions_count;
+			thread_q.from_user_id = id;
+			thread_q.to_user_id = user_id;
+			thread_q.anonymous = anonymous;
+			thread_q.parent_question_id = questions[parent_question_idx].id;
+			thread_q.question = question;
+			thread_q.answer = "";
+
+			questions[parent_question_idx]
+			.thread_questions
+			.push_back(thread_q);
+		}
+	}
+
+	int user_exist(vector<User>& users, int user_id) {
+		for (int i = 0; i < users.size(); i++)
+			if (users[i].id == user_id) return i;
+
+		return -1;
+	}
+	int parent_question_exist(vector<Question>& questions, int to_user_id, int q_id) {
+		for (int i = 0; i < questions.size(); i++) {
+			Question q = questions[i];
+			if (q.to_user_id == to_user_id && q.id == q_id) return i;
+		}
+	
+		return -1;
+	}
 };
 
 struct QuestionLoader {
@@ -264,8 +348,11 @@ struct QuestionLoader {
 	void save_questions(User& user) {
 		questions_database.open_write();
 
-		for (auto q: questions)
+		for (auto q: questions) {
 			save_question(q);
+			for (auto thread_q: q.thread_questions)
+				save_question(thread_q);
+		}
 
 		for (auto q: user.questions_from) {
 			save_question(q);
@@ -291,6 +378,22 @@ struct QuestionLoader {
 		fout << q.parent_question_id << seperator;
 		fout << q.question << endl;
 		fout << q.answer << endl;
+	}
+	int get_questions_count(User& user) {
+		int q_count = 0;
+		q_count += get_num_questions(questions);
+		q_count += get_num_questions(user.questions_to);
+		q_count += get_num_questions(user.questions_from);
+
+		return q_count;
+	}
+
+	int get_num_questions(vector<Question>& questions) {
+		int count = 0;
+		for (auto q: questions)
+			count += 1 + q.thread_questions.size();
+
+		return count;
 	}
 };
 
@@ -380,6 +483,7 @@ struct Registration {
 		fout << password << "\n";
 	
 		User new_user;
+		current_user_idx = users.size();
 		new_user.id = users.size();
 		new_user.name = name;
 		new_user.email = email;
@@ -428,6 +532,8 @@ struct Ask {
 	QuestionLoader question_loader = QuestionLoader(current_user);
 
 	Ask() {	
+		cout << "Hello " << current_user.name << endl;
+		
 		while (true) {
 			int choice = menu();
 			cout << "\n";
@@ -436,6 +542,11 @@ struct Ask {
 			if (choice == 2) update_sys_read(), current_user.print_questions_from_me();
 			if (choice == 3) current_user.answer_question(), update_sys_write();
 			if (choice == 4) current_user.delete_question(), update_sys_write();
+			if (choice == 5) {
+				update_sys_read();
+				current_user.ask_question(reg.users, question_loader.questions, question_loader.get_questions_count(current_user));
+				update_sys_write();
+			} 
 			if (choice == 6) reg.list_users();
 			if (choice == 7) current_user.feed();
 			if (choice == 8) break;
