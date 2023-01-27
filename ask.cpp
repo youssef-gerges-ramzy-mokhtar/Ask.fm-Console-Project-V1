@@ -117,37 +117,44 @@ struct User {
 	string username;
 	string password;
 
-	vector<Question> questions_to;
-	vector<Question> questions_from;
+	vector<Question> questions;
 
 	User() {}
 
 	void print_questions_to_me() {
-		for (auto question: questions_to)
+		for (auto question: questions) {
+			if (question.to_user_id != id) continue;
 			question.print_to();
+		}
 	}
 
 	void print_questions_from_me() {
-		for (auto question: questions_from)
-			question.print_from();
+		for (auto question: questions) {
+			if (question.from_user_id == id) question.print_from();
+			
+			for (auto thread_q: question.thread_questions)
+				if (thread_q.from_user_id == id) thread_q.print_from();
+		}
 
 		cout << endl;
 	}
 
 	void answer_question() {
 		cout << "Enter Question id or -1 to cancel: ";
-		int id;
-		cin >> id;
+		int q_id;
+		cin >> q_id;
 
-		if (id == -1) {
+		if (q_id == -1) {
 			cout << "Cancelled\n";
 			return;
 		}
 
-		for (auto &question: questions_to) {
-			if (id != question.id) {
+		for (auto &question: questions) {
+			if (question.to_user_id != id) continue;
+
+			if (q_id != question.id) {
 				for (auto &thread_question: question.thread_questions) {
-					if (thread_question.id != id) continue;
+					if (thread_question.id != q_id) continue;
 
 					thread_question.print_to_thread_structure();
 					cout << "\n";
@@ -161,19 +168,19 @@ struct User {
 					thread_question.answer = answer;
 					return;
 				}
+			} else {
+				question.print_to_structure();
+				cout << "\n";
+				if (question.is_answered()) cout << "Warning: Already answered. Answer will be updated\n";
+
+				cout << "Enter Answer: ";
+				string answer;
+				cin.ignore();
+				getline(cin, answer);
+
+				question.answer = answer;
+				return;
 			}
-
-			question.print_to_structure();
-			cout << "\n";
-			if (question.is_answered()) cout << "Warning: Already answered. Answer will be updated\n";
-
-			cout << "Enter Answer: ";
-			string answer;
-			cin.ignore();
-			getline(cin, answer);
-
-			question.answer = answer;
-			return;
 		}
 
 		cout << "Question Not Found\n";
@@ -189,7 +196,7 @@ struct User {
 			return;
 		}
 
-		for (auto it = questions_to.begin(); it != questions_to.end(); it++) {
+		for (auto it = questions.begin(); it != questions.end(); it++) {
 			if (it->id != id) {
 				for (auto it2 = it->thread_questions.begin(); it2 != it->thread_questions.end(); it2++) {
 					if (it2->id != id) continue;
@@ -199,7 +206,7 @@ struct User {
 				}
 			}
 
-			questions_to.erase(it);
+			questions.erase(it);
 			return;
 		}
 
@@ -207,18 +214,17 @@ struct User {
 	}
 
 	void feed() {
-		for (auto question: questions_to) {
-			question.print_feed();
+		for (auto question: questions) {
+			if (question.from_user_id == id && question.to_user_id == id) question.print_feed();
 
-			for (auto thread_q: question.thread_questions)
+			for (auto thread_q: question.thread_questions) {
+				if (thread_q.from_user_id != id && thread_q.to_user_id != id) continue;
 				thread_q.print_feed();
+			}
 		}
-
-		for (auto question: questions_from)
-			question.print_feed();
 	}
 
-	void ask_question(vector<User>& users, vector<Question>& questions, int questions_count) {
+	void ask_question(vector<User>& users, int questions_count) {
 		int user_id;
 		cout << "Enter user id or -1 to cancel: ";
 		cin >> user_id;
@@ -266,9 +272,7 @@ struct User {
 
 			questions.push_back(q);
 		} else {
-			cout << "Sizeof questions = " << questions.size() << endl;
 			int parent_question_idx = parent_question_exist(questions, user_id, q_id);
-			cout << "Parent Q idx = " << parent_question_idx << endl;
 			if (parent_question_idx == -1) {cout << "Question was not found.\n"; return;}
 
 			Question thread_q;
@@ -318,7 +322,7 @@ struct QuestionLoader {
 	}
 
 	void load_questions(User& user) {
-		questions.clear(), user.questions_to.clear(), user.questions_from.clear();
+		questions.clear();
 		questions_database.open_read();
 		string line;
 
@@ -337,36 +341,24 @@ struct QuestionLoader {
 			getline(iss, current_q.question);
 			getline(fin, current_q.answer);			
 
-			if (current_q.from_user_id != user.id && current_q.to_user_id != user.id) {
+			if (current_q.parent_question_id == -1) {
 				questions.push_back(current_q);
 				continue;
-			} 
-
-			if (current_q.from_user_id == user.id) user.questions_from.push_back(current_q);
-			if (current_q.to_user_id == user.id) {
-				if (current_q.parent_question_id != -1) user.questions_to[current_q.parent_question_id].add_thread(current_q);
-				else user.questions_to.push_back(current_q);
+			} else {
+				questions[questions.size()-1].thread_questions.push_back(current_q);
+				continue;
 			}
 		}
 
+		user.questions = questions;
 		questions_database.close();
 	}
+
 	void save_questions(User& user) {
 		questions_database.open_write();
 
-		for (auto q: questions) {
-			save_question(q);
-			for (auto thread_q: q.thread_questions)
-				save_question(thread_q);
-		}
-
-		for (auto q: user.questions_from) {
-			save_question(q);
-			for (auto thread_q: q.thread_questions)
-				save_question(thread_q);
-		}
-
-		for (auto q: user.questions_to) {
+		// cout << "While Saving " << user.questions.size() << endl;
+		for (auto q: user.questions) {
 			save_question(q);
 			for (auto thread_q: q.thread_questions)
 				save_question(thread_q);
@@ -385,12 +377,9 @@ struct QuestionLoader {
 		fout << q.question << endl;
 		fout << q.answer << endl;
 	}
-	int get_questions_count(User& user) {
-		int q_count = 0;
-		q_count += get_num_questions(questions);
-		q_count += get_num_questions(user.questions_to);
-		q_count += get_num_questions(user.questions_from);
 
+	int get_questions_count(User& user) {
+		int q_count = get_num_questions(questions);
 		return q_count;
 	}
 
@@ -556,13 +545,14 @@ struct Ask {
 
 			if (choice == 1) update_sys_read(), current_user.print_questions_to_me();
 			if (choice == 2) update_sys_read(), current_user.print_questions_from_me();
+
 			if (choice == 3) current_user.answer_question(), update_sys_write();
 			if (choice == 4) current_user.delete_question(), update_sys_write();
 			if (choice == 5) {
 				update_sys_read();
-				current_user.ask_question(reg.users, question_loader.questions, question_loader.get_questions_count(current_user));
+				current_user.ask_question(reg.users, question_loader.get_questions_count(current_user));
 				update_sys_write();
-			} 
+			}
 			if (choice == 6) reg.list_users();
 			if (choice == 7) current_user.feed();
 			if (choice == 8) break;
@@ -582,10 +572,10 @@ struct Ask {
 		cout << "	1: Print Questions To Me\n";
 		cout << "	2: Print Questions From Me\n";
 		cout << "	3: Answer Question\n";
-		cout << "	4: Delete Question\n";
+		cout << "	4: Delete Question\n"; // We didn't test this feature yet
 		cout << "	5: Ask Question\n";
 		cout << "	6: List System Users\n";
-		cout << "	7: Feed\n";
+		cout << "	7: Feed\n"; // This is currently not working
 		cout << "	8: Logout\n\n";
 
 		int choice = -1;
@@ -602,7 +592,6 @@ struct Ask {
 		return choice;
 	}
 };
-
 
 int main() {
 	cout << boolalpha;
