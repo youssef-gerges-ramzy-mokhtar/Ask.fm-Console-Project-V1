@@ -1,5 +1,7 @@
 6,1,2,0,-1,It was nice to chat to you
 For my pleasure Dr Mostafa
+7,1,3,0,-1,Please search archive before asking
+
 0,0,1,0,-1,Should I Learn C++ first or Java
 I think C++ is a better start
 4,2,1,0,0,Why so late in reply?
@@ -8,9 +10,7 @@ I think C++ is a better start
 Good Choice
 2,2,1,0,0,What about python?
 
-7,3,1,0,-1,Free to meet?
-
 1,3,1,0,0,Why do you think so!
 Just Google. There is an answer on Quroa.
-7,1,3,0,-1,Please search archive before asking
+7,3,1,0,-1,Free to meet?
 

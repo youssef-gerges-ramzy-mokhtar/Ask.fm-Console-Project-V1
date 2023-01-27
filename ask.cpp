@@ -111,11 +111,11 @@ struct Question {
 
 struct User {
 	int id;
+	bool allow_AQ;
 	string name;
 	string email;
 	string username;
 	string password;
-	bool allow_AQ; // work on that will be when signing up
 
 	vector<Question> questions_to;
 	vector<Question> questions_from;
@@ -231,11 +231,16 @@ struct User {
 			return;
 		}
 
-		bool anonymous = false;
+		char anonymous = 'n';
 		if (!users[user_idx].allow_AQ) cout << "Note: Anonymous questions are not allowed for this user\n";
 		else {
-			cout << "Do you want to send you question anonymously: Enter 1 for yes else enter 0: ";
-			cin >> anonymous;
+			while (true) {
+				cout << "Do you want to send you question anonymously (y/n): ";
+				cin >> anonymous;
+
+				if (anonymous == 'y' || anonymous == 'n') break;
+				cout << "Invalid Choice.\n";
+			}
 		}
 
 		int q_id;
@@ -248,7 +253,7 @@ struct User {
 			q.id = questions_count;
 			q.from_user_id = id;
 			q.to_user_id = user_id;
-			q.anonymous = anonymous;
+			q.anonymous = anonymous == 'y' ? true : false;
 			q.parent_question_id = -1;
 
 			string question;
@@ -276,7 +281,7 @@ struct User {
 			thread_q.id = questions_count;
 			thread_q.from_user_id = id;
 			thread_q.to_user_id = user_id;
-			thread_q.anonymous = anonymous;
+			thread_q.anonymous = anonymous == 'y' ? true : false;
 			thread_q.parent_question_id = questions[parent_question_idx].id;
 			thread_q.question = question;
 			thread_q.answer = "";
@@ -293,6 +298,7 @@ struct User {
 
 		return -1;
 	}
+
 	int parent_question_exist(vector<Question>& questions, int to_user_id, int q_id) {
 		for (int i = 0; i < questions.size(); i++) {
 			Question q = questions[i];
@@ -422,7 +428,7 @@ struct Registration {
 			User current_user;
 
 			istringstream iss(line);
-			iss >> current_user.id;
+			iss >> current_user.id >> current_user.allow_AQ;
 
 			getline(fin, current_user.name);
 			getline(fin, current_user.email);
@@ -451,8 +457,8 @@ struct Registration {
 	}
 
 	bool signup() {
-		cout << "Enter name, email, username & password: ";
 		string name, email, username, password;
+		cout << "Enter name, email, username & password: ";
 		cin >> name >> email >> username >> password;
 
 		int current_user_idx = user_exist(username, password);
@@ -461,7 +467,16 @@ struct Registration {
 			return false;
 		}
 
-		store_user(name, email, username, password);
+		char allow_AQ;
+		while (true) {
+			cout << "Do You Allow Anonymous Questions (y/n): ";
+			cin >> allow_AQ;
+	
+			if (allow_AQ == 'y' || allow_AQ == 'n') break;
+			cout << "Invalid Choice.\n";
+		}
+
+		store_user(name, email, username, password, allow_AQ == 'y' ? true : false);
 		cout << "Signup Completed Successfully\n";
 		return true;
 	}
@@ -473,10 +488,11 @@ struct Registration {
 
 		return -1;
 	}
-	void store_user(string name, string email, string username, string password) {
+
+	void store_user(string name, string email, string username, string password, bool allow_AQ) {
 		users_database.open_write();
 		
-		fout << users.size() << "\n";
+		fout << users.size() << " " << allow_AQ << "\n";
 		fout << name << "\n";
 		fout << email << "\n";
 		fout << username << "\n";
@@ -485,13 +501,13 @@ struct Registration {
 		User new_user;
 		current_user_idx = users.size();
 		new_user.id = users.size();
+		new_user.allow_AQ = allow_AQ;
 		new_user.name = name;
 		new_user.email = email;
 		new_user.username = username;
 		new_user.password = password;
 
 		users.push_back(new_user);
-	
 		users_database.close();
 	}
 
