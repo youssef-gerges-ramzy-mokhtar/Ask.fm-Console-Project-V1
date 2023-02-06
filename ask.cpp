@@ -215,7 +215,7 @@ struct User {
 
 	void feed() {
 		for (auto question: questions) {
-			if (question.from_user_id == id && question.to_user_id == id) question.print_feed();
+			if (question.from_user_id == id || question.to_user_id == id) question.print_feed();
 
 			for (auto thread_q: question.thread_questions) {
 				if (thread_q.from_user_id != id && thread_q.to_user_id != id) continue;
@@ -230,6 +230,8 @@ struct User {
 		cin >> user_id;
 
 		if (user_id == -1) return; // cancelled
+		if (user_id < 0) {cout << "Invalid User ID\n"; return;}
+		if (user_id == id) {cout << "Cannot Ask To Yourself\n"; return;}
 
 		int user_idx = user_exist(users, user_id);
 		if (user_idx == -1) {
