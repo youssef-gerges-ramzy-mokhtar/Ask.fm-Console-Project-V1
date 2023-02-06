@@ -188,26 +188,28 @@ struct User {
 
 	void delete_question() {
 		cout << "Enter Question id or -1 to cancel: ";
-		int id;
-		cin >> id;
+		int q_id;
+		cin >> q_id;
 
-		if (id == -1) {
+		if (q_id == -1) {
 			cout << "Cancelled\n";
 			return;
 		}
 
 		for (auto it = questions.begin(); it != questions.end(); it++) {
-			if (it->id != id) {
-				for (auto it2 = it->thread_questions.begin(); it2 != it->thread_questions.end(); it2++) {
-					if (it2->id != id) continue;
+			if (it->to_user_id != id) continue;
 
-					it->thread_questions.erase(it2);
-					return;
-				}
+			if (it->id == q_id) {
+				questions.erase(it);
+				return;
 			}
 
-			questions.erase(it);
-			return;
+			for (auto it2 = it->thread_questions.begin(); it2 != it->thread_questions.end(); it2++) {
+				if (it2->id != q_id) continue;
+
+				it->thread_questions.erase(it2);
+				return;
+			}
 		}
 
 		cout << "Question Not Found\n";
