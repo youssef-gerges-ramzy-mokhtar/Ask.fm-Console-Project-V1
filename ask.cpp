@@ -80,6 +80,7 @@ struct Question {
 	void print_from() {
 		cout << "Question Id (" << id << ") ";
 		if (!anonymous) cout << "!AQ ";
+		else cout << "    ";
 
 		cout << "to user id (" << to_user_id << ")";
 		cout << "		Question: " << question;
@@ -549,7 +550,6 @@ struct Ask {
 
 			if (choice == 1) update_sys_read(), current_user.print_questions_to_me();
 			if (choice == 2) update_sys_read(), current_user.print_questions_from_me();
-
 			if (choice == 3) current_user.answer_question(), update_sys_write();
 			if (choice == 4) current_user.delete_question(), update_sys_write();
 			if (choice == 5) {

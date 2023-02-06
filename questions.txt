@@ -7,7 +7,7 @@ Just Google. There is an answer on Quroa.
 7,2,1,0,0,What about python?
 
 8,2,1,1,0,Why so late in reply?
-
+Very sorry for that
 1,0,1,1,-1,Hello Dr. Mostafa I just want to say that I am a big fan of all your work
 Thank you very much
 2,1,2,0,-1,It was nice to chat to you
